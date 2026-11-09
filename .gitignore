@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+
+# Secrets: never commit real keys (keep .env.example)
+.env
+.env.*
+!.env.example
+
+# Local database files (created at runtime)
+data/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+
+# Build and temp
+dist/
+tmp/
+.cache/
+
+# Agent working files
+RULES.md

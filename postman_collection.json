@@ -1,0 +1,263 @@
+{
+  "info": {
+    "name": "Patient Management System - Phase 1 API",
+    "description": "Postman Collection for testing Phase 1 REST API endpoints, validations, and security controls.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Standard Operations (Success)",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "Create Patient (Standard)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"98765 43210\",\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"]
+            }
+          }
+        },
+        {
+          "name": "Get All Patients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Due Today Patients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients/due-today?includeOverdue=true",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients", "due-today"],
+              "query": [
+                {
+                  "key": "includeOverdue",
+                  "value": "true"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Complete Follow-up",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients/1/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients", "1", "complete"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Validation & Security Errors (Bad Input)",
+      "item": [
+        {
+          "name": "Bad Type - Numeric Phone (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": 9876543210,\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"]
+            }
+          }
+        },
+        {
+          "name": "Unknown Field (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"+919876543210\",\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\",\n  \"role\": \"admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"]
+            }
+          }
+        },
+        {
+          "name": "Bad Date - Nonexistent Calendar Date (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"+919876543210\",\n  \"consultationDate\": \"2026-02-31\",\n  \"followUpDate\": \"2026-03-05\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"]
+            }
+          }
+        },
+        {
+          "name": "Bad Phone - Starts with 5 (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"5876543210\",\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"]
+            }
+          }
+        },
+        {
+          "name": "Wrong Content-Type - text/plain (415)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "name=Anita"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"]
+            }
+          }
+        },
+        {
+          "name": "Bad Path ID - 007 (400)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients/007/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients", "007", "complete"]
+            }
+          }
+        },
+        {
+          "name": "Unknown Query Parameter (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/patients?filter=all",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "all"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Duplicate Patient Conflict (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"+919876543210\",\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/patients",
+              "host": ["{{baseUrl}}"],
+              "path": ["patients"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
