@@ -876,12 +876,12 @@ curl -s http://localhost:3000/health
   ```
 - Limitation: The mock is a fixed template with only first name and date filled in, so every message reads the same and is not personalized by a model. Drafts are labeled `source: "ai"` or `source: "mock"` so staff always know which they are reviewing.
 
-## 6. Web UI
+## 6. Web UI & Deployment
 
-A staff web interface built with React, Tailwind CSS, and Vite located in the `frontend/` directory. It communicates with the backend REST API via Vite dev server proxying to store and manage patient data directly in SQLite.
+A staff web interface built with React, Tailwind CSS, and Vite located in the `frontend/` directory. It communicates with the backend REST API via Vite dev server proxying (locally) or is served directly by the Express backend in production from `frontend/dist` to store and manage patient data directly in SQLite.
 Persistent notice bar: *"Demo mode: no messages are ever sent. Fictional data only."*
 
-### How to Run the Frontend
+### How to Run Locally
 1. Start backend: `npm start` (runs on `http://localhost:3000`)
 2. Start frontend:
    ```bash
@@ -889,6 +889,7 @@ Persistent notice bar: *"Demo mode: no messages are ever sent. Fictional data on
    npm install
    npm run dev
    ```
+   Or from the root directory: `npm run frontend:dev`
 3. Open `http://localhost:5173` in your browser.
 
 ### Features

@@ -11,6 +11,8 @@
 - **Phase 2 (AI workflow):** `aiService.js`, `draftService.js` and `drafts.js`, the follow-up prompt, the mock fallback,
   atomic approve/reject endpoints, cancelling pending drafts when a patient is completed, the generate rate limit, the
   safety scan test against message-sending code, and the tests (`tests/drafts.test.js`, `tests/ai.test.js`).
+- **Phase 3 (staff UI & layout):** React 18 staff web interface (`frontend/`) with Tailwind CSS and Vite, dev proxy,
+  clean folder split into `backend/` and `frontend/`, and Express static serving of `frontend/dist` for production deployment.
 - **Documentation:** first drafts of the README and Postman collection.
 
 ## 3. Parts I Personally Designed, Decided and Tested

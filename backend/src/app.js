@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createRateLimiters } from './middleware/rateLimiter.js';
 import { requestLogger } from './middleware/logger.js';
 import { notFoundHandler } from './middleware/notFound.js';
@@ -45,6 +48,15 @@ export function createApp(options = {}) {
   // Drafts routes
   const aiOptions = { ...(options.aiMode ? { aiMode: options.aiMode } : {}), ...(options.aiOptions || {}) };
   app.use('/drafts', createDraftsRouter({ generateLimiter, writeLimiter, db, aiOptions }));
+
+  // Static files: serve built frontend if available
+  const distPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../frontend/dist');
+  if (options.serveStatic !== false && fs.existsSync(distPath)) {
+    app.use(express.static(distPath, { index: 'index.html', dotfiles: 'ignore' }));
+    app.get('/', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
 
   // 404 handler for unknown routes
   app.use(notFoundHandler);
