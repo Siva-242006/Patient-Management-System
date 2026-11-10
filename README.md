@@ -6,13 +6,39 @@ A backend REST API for managing clinic follow-up appointments and an AI draft wo
 
 Prerequisites: Node.js 20+
 
+The repository is organized into clean, separate `backend/` and `frontend/` folders:
+- **`backend/`**: Express REST API + SQLite (`better-sqlite3`), input validation, AI prompt workflows, and automated tests.
+- **`frontend/`**: Staff web interface built with React 18, Tailwind CSS, and Vite.
+
+### Quick Start (from Repository Root)
 ```bash
+# Backend setup and start
+npm run seed  # seeds initial fictional patients
+npm start     # runs Express server on http://localhost:3000
+
+# In a second terminal: Frontend dev server
+npm run frontend:dev  # runs Vite on http://localhost:5173
+```
+
+### Running from Subfolders
+
+#### 1. Backend API Server (`backend/`)
+```bash
+cd backend
 npm install
 cp .env.example .env
 npm run seed
 npm start
 ```
-Server runs at `http://localhost:3000`. Use `npm run dev` for auto-reload.
+Server runs at `http://localhost:3000`. Use `npm run dev` for auto-reload, and `npm test` to run tests.
+
+#### 2. Frontend Web UI (`frontend/`)
+```bash
+cd frontend
+npm install
+npm run dev
+```
+Vite dev server runs at `http://localhost:5173` and proxies API requests (`/patients`, `/drafts`, `/health`) to `http://localhost:3000`.
 
 ## 2. Dependencies
 
@@ -850,7 +876,27 @@ curl -s http://localhost:3000/health
   ```
 - Limitation: The mock is a fixed template with only first name and date filled in, so every message reads the same and is not personalized by a model. Drafts are labeled `source: "ai"` or `source: "mock"` so staff always know which they are reviewing.
 
-## 6. How to Test
+## 6. Web UI
+
+A staff web interface built with React, Tailwind CSS, and Vite located in the `frontend/` directory. It communicates with the backend REST API via Vite dev server proxying to store and manage patient data directly in SQLite.
+Persistent notice bar: *"Demo mode: no messages are ever sent. Fictional data only."*
+
+### How to Run the Frontend
+1. Start backend: `npm start` (runs on `http://localhost:3000`)
+2. Start frontend:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+3. Open `http://localhost:5173` in your browser.
+
+### Features
+1. **Today's Summary**: Live stat cards for patient and draft counts, daily briefing narrative text, generation source badge (`AI` or `MOCK`), and a Refresh button (`GET /drafts/summary`).
+2. **Patients (Enter & Store in SQLite)**: Add patient form with inline field validation and instant SQLite persistence (`POST /patients`), filterable patient table by status or due-today (`GET /patients`, `GET /patients/due-today`), and "Mark completed" action (`PATCH /patients/:id/complete`). Phone numbers are omitted from the table view.
+3. **Draft Messages (Staff Review)**: One-click draft generation button with optional overdue inclusion (`POST /drafts/generate`), status filter tabs (`GET /drafts`), and draft review cards. For `pending_review` drafts, staff can edit message text with a live 100-500 character counter before clicking "Approve" (`PATCH /drafts/:id/approve`) or "Reject" (`PATCH /drafts/:id/reject`).
+
+## 7. How to Test
 
 Run the full automated test suite (covers in-memory unit, integration, validation, security, and AI prompt safety tests):
 ```bash
@@ -867,9 +913,10 @@ Manual 8-step curl walkthrough:
 7. View daily summary: `curl -s http://localhost:3000/drafts/summary`
 8. Complete a patient: `curl -s -X PATCH http://localhost:3000/patients/1/complete`
 
-## 7. Known Limitations
+## 8. Known Limitations
 
 - No user authentication or role-based access control, so not intended for real patient data.
+- No authentication, so the deployed UI is for demo use with mock mode only.
 - Mock mode uses fixed template interpolation rather than generative personalization.
 - No real WhatsApp or messaging provider integration; approval is simulated only.
 - SQLite is local and single-node (not distributed).

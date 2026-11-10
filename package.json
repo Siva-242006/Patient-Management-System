@@ -1,23 +1,15 @@
 {
-  "name": "patient-followup-system",
+  "name": "patient-management-system",
   "version": "1.0.0",
-  "description": "Patient Follow-Up Management System REST API",
-  "type": "module",
-  "main": "src/server.js",
+  "description": "Patient Management & Follow-Up System - Full Stack",
+  "private": true,
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "seed": "node scripts/seed.js",
-    "test": "node --test tests/*.test.js"
-  },
-  "dependencies": {
-    "better-sqlite3": "^11.8.1",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "express-rate-limit": "^7.5.0",
-    "helmet": "^8.0.0"
-  },
-  "devDependencies": {
-    "supertest": "^7.0.0"
+    "start": "npm --prefix backend start",
+    "dev": "npm --prefix backend run dev",
+    "seed": "npm --prefix backend run seed",
+    "test": "npm --prefix backend test",
+    "backend:dev": "npm --prefix backend run dev",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build"
   }
 }
