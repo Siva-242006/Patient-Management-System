@@ -42,96 +42,798 @@ Development:
 | `GEMINI_MODEL` | `gemini-3.5-flash` | Gemini model name |
 | `GEMINI_API_KEY` | *(empty)* | Optional Gemini API key; stays in `.env` only and is never logged |
 
-## 4. API Endpoints
+## 4. API Reference
 
-Common response envelopes:
-- Success: `{"success": true, "data": <payload>, "message": "<info>"}`
-- Error: `{"success": false, "error": {"code": "<CODE>", "message": "<info>", "details": [...]}}`
-- Error codes and HTTP statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`, `413 PAYLOAD_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`, `429 RATE_LIMITED`, `500 INTERNAL_ERROR`.
+Base URL: `http://localhost:3000`. All requests and responses use JSON. Send `Content-Type: application/json` on requests with a body.
 
-Key validation rules:
-- Required body fields cannot be omitted or null.
-- Phone must be a 10-digit Indian number starting 6-9, stored as `+91XXXXXXXXXX`.
-- Dates must be real calendar dates in `YYYY-MM-DD` format.
-- `followUpDate` must be on or after `consultationDate` and within 365 days.
-- Draft approve `message` must be 100-500 characters and contain letters.
+### 4.1 Conventions
 
-Security: Protected with Helmet headers, no CORS headers, strict rate limits, and zero logging of patient identifiers.
+**Success response**
+
+```json
+{
+  "success": true,
+  "data": {},
+  "message": "Short description"
+}
+```
+
+List endpoints also include `count`.
+
+**Error response**
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "phone", "issue": "must be a string" }
+    ]
+  }
+}
+```
+
+`details` appears only for validation errors, and lists every invalid field. The HTTP status is carried in the response status line, not in the body.
+
+**Error codes**
+
+| Code | HTTP status | Meaning |
+|---|---|---|
+| `VALIDATION_ERROR` | 400 | Invalid body, query parameter or id |
+| `NOT_FOUND` | 404 | Record or route does not exist |
+| `CONFLICT` | 409 | Action not allowed in the current state, or duplicate |
+| `PAYLOAD_TOO_LARGE` | 413 | Request body over 10 KB |
+| `UNSUPPORTED_MEDIA_TYPE` | 415 | Body not sent as `application/json` |
+| `RATE_LIMITED` | 429 | Too many requests from this IP |
+| `INTERNAL_ERROR` | 500 | Unexpected server error (no details exposed) |
+
+Every endpoint can also return 413, 415 (when it takes a body), 429 and 500. Only the errors specific to each endpoint are listed below.
+
+### 4.2 Endpoint overview
 
 | Method | Path | Purpose |
 |---|---|---|
-| `POST` | `/patients` | Create patient follow-up record |
-| `GET` | `/patients` | List patients (`?status=pending\|completed`) |
-| `GET` | `/patients/due-today` | List patients due today (`?includeOverdue=true`) |
-| `PATCH` | `/patients/:id/complete` | Complete follow-up and cancel pending drafts |
-| `POST` | `/drafts/generate` | Generate drafts for due patients |
-| `GET` | `/drafts` | List drafts (`?status=pending_review\|approved\|rejected\|cancelled`) |
-| `PATCH` | `/drafts/:id/approve` | Approve draft (optional edited message) |
-| `PATCH` | `/drafts/:id/reject` | Reject draft |
-| `GET` | `/drafts/summary` | Summary review list (`GET /drafts` with count and filters) |
-| `GET` | `/health` | Service health check |
+| POST | `/patients` | Add a patient follow-up record |
+| GET | `/patients` | List all patients |
+| GET | `/patients/due-today` | List patients whose follow-up is due today |
+| PATCH | `/patients/:id/complete` | Mark a follow-up as completed |
+| POST | `/drafts/generate` | Generate AI follow-up drafts for due patients |
+| GET | `/drafts` | List drafts for review |
+| GET | `/drafts/summary` | Today's counts with a readable summary |
+| PATCH | `/drafts/:id/approve` | Approve a draft, optionally with edited text |
+| PATCH | `/drafts/:id/reject` | Reject a draft |
+| GET | `/health` | Health check |
 
-### Endpoint Details
+---
+
+### 4.3 Patients
 
 #### POST /patients
-- Body: `name` (string, 2-100 chars), `phone` (string, 10-digit Indian), `consultationDate` (`YYYY-MM-DD`), `followUpDate` (`YYYY-MM-DD`).
-- Curl: `curl -s -X POST http://localhost:3000/patients -H "Content-Type: application/json" -d '{"name":"Anita Rao","phone":"9876543210","consultationDate":"2026-11-01","followUpDate":"2026-11-10"}'`
-- Success (`201`): `{"success":true,"data":{"id":1,"name":"Anita Rao","phone":"+919876543210","followUpStatus":"pending"},"message":"Patient follow-up created"}`
-- Error statuses: `400 VALIDATION_ERROR`, `409 CONFLICT`, `413 PAYLOAD_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`.
+
+Adds a patient. Fictional data only.
+
+**Request body**
+
+| Field | Type | Required | Rules |
+|---|---|---|---|
+| `name` | string | Yes | 2-100 characters; letters, spaces, `.` `'` `-` only |
+| `phone` | string | Yes | 10-digit Indian mobile starting 6-9; optional `+91` or `91` prefix; stored as `+91XXXXXXXXXX` |
+| `consultationDate` | string | Yes | `YYYY-MM-DD`, real date, not in the future, within the last 365 days |
+| `followUpDate` | string | Yes | `YYYY-MM-DD`, on or after `consultationDate`, within 365 days of it |
+
+Unknown fields, non-string values and arrays are rejected.
+
+**Request**
+
+```bash
+curl -s -X POST http://localhost:3000/patients \
+  -H "Content-Type: application/json" \
+  -d '{"name":"Anita Rao","phone":"98765 43210","consultationDate":"2026-11-01","followUpDate":"2026-11-10"}'
+```
+
+**Success: 201 Created**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "Anita Rao",
+    "phone": "+919876543210",
+    "consultationDate": "2026-11-01",
+    "followUpDate": "2026-11-10",
+    "followUpStatus": "pending",
+    "completedAt": null,
+    "createdAt": "2026-11-10 05:30:00"
+  },
+  "message": "Patient added"
+}
+```
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | Missing or invalid fields, unknown field, malformed JSON |
+| 409 | Same name, phone and follow-up date already exists |
+
+400 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "name", "issue": "must be 2-100 characters" },
+      { "field": "phone", "issue": "must be a string" }
+    ]
+  }
+}
+```
+
+409 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "CONFLICT",
+    "message": "A follow-up for this patient on this date already exists"
+  }
+}
+```
+
+---
 
 #### GET /patients
-- Query: `status` (optional string, `pending` or `completed`).
-- Curl: `curl -s "http://localhost:3000/patients?status=pending"`
-- Success (`200`): `{"success":true,"data":[{"id":1,"name":"Anita Rao","followUpStatus":"pending"}],"count":1,"message":"Patients retrieved"}`
-- Error statuses: `400 VALIDATION_ERROR`.
+
+Lists patients ordered by follow-up date, then id.
+
+**Query parameters**
+
+| Parameter | Type | Required | Allowed values |
+|---|---|---|---|
+| `status` | string | No | `pending`, `completed` |
+
+**Request**
+
+```bash
+curl -s "http://localhost:3000/patients?status=pending"
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Anita Rao",
+      "phone": "+919876543210",
+      "consultationDate": "2026-11-01",
+      "followUpDate": "2026-11-10",
+      "followUpStatus": "pending",
+      "completedAt": null,
+      "createdAt": "2026-11-10 05:30:00"
+    }
+  ],
+  "message": "Patients retrieved",
+  "count": 1
+}
+```
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | Invalid, repeated or unknown query parameter |
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "status", "issue": "must be pending or completed" }
+    ]
+  }
+}
+```
+
+---
 
 #### GET /patients/due-today
-- Query: `includeOverdue` (optional boolean string, `true` or `false`, default `false`).
-- Curl: `curl -s "http://localhost:3000/patients/due-today?includeOverdue=true"`
-- Success (`200`): `{"success":true,"data":[{"id":1,"name":"Anita Rao","followUpDate":"2026-11-10"}],"count":1,"message":"Patients retrieved","date":"2026-11-10"}`
-- Error statuses: `400 VALIDATION_ERROR`.
+
+Returns pending patients whose follow-up date is today (computed in `APP_TIMEZONE`).
+
+**Query parameters**
+
+| Parameter | Type | Required | Allowed values |
+|---|---|---|---|
+| `includeOverdue` | string | No | `true`, `false` (default `false`). When `true`, pending patients with an earlier follow-up date are included. |
+
+**Request**
+
+```bash
+curl -s "http://localhost:3000/patients/due-today?includeOverdue=true"
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Anita Rao",
+      "phone": "+919876543210",
+      "consultationDate": "2026-11-01",
+      "followUpDate": "2026-11-10",
+      "followUpStatus": "pending",
+      "completedAt": null,
+      "createdAt": "2026-11-10 05:30:00"
+    }
+  ],
+  "message": "Due today along with overdue patients retrieved",
+  "count": 1,
+  "date": "2026-11-10"
+}
+```
+
+The message is `Due today patients retrieved` when `includeOverdue` is `false` or omitted.
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | `includeOverdue` is not `true` or `false`, or an unknown parameter is sent |
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "includeOverdue", "issue": "must be true or false" }
+    ]
+  }
+}
+```
+
+---
 
 #### PATCH /patients/:id/complete
-- Path: `:id` (integer string, 1-2147483647). Body: ignored.
-- Curl: `curl -s -X PATCH http://localhost:3000/patients/1/complete`
-- Success (`200`): `{"success":true,"data":{"id":1,"followUpStatus":"completed","completedAt":"2026-11-10T04:00:00.000Z"},"message":"Follow-up marked as completed"}`
-- Error statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`.
+
+Marks a follow-up as completed. Pending drafts for this patient are cancelled in the same transaction. No body is needed (any body is ignored).
+
+**Path parameters**
+
+| Parameter | Type | Rules |
+|---|---|---|
+| `id` | integer | Positive integer, no leading zeros, at most 2147483647 |
+
+**Request**
+
+```bash
+curl -s -X PATCH http://localhost:3000/patients/1/complete
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "name": "Anita Rao",
+    "phone": "+919876543210",
+    "consultationDate": "2026-11-01",
+    "followUpDate": "2026-11-10",
+    "followUpStatus": "completed",
+    "completedAt": "2026-11-10T05:45:00.000Z",
+    "createdAt": "2026-11-10 05:30:00"
+  },
+  "message": "Follow-up marked as completed"
+}
+```
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | `id` is not a valid positive integer |
+| 404 | No patient with this id |
+| 409 | Follow-up already completed |
+
+400 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "id", "issue": "must be a positive integer" }
+    ]
+  }
+}
+```
+
+404 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Patient not found"
+  }
+}
+```
+
+409 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "CONFLICT",
+    "message": "Follow-up already completed"
+  }
+}
+```
+
+---
+
+### 4.4 Drafts (AI workflow)
+
+Draft fields: `id, patientId, patientName, followUpDate, message, source, status, reviewedAt, createdAt`.
+`source` is `ai` or `mock`. `status` is `pending_review`, `approved`, `rejected` or `cancelled`. Phone numbers are never returned.
 
 #### POST /drafts/generate
-- Body: optional JSON object with only `includeOverdue` (strict boolean, default `false`).
-- Curl: `curl -s -X POST http://localhost:3000/drafts/generate -H "Content-Type: application/json" -d '{"includeOverdue":false}'`
-- Success (`201` or `200`): `{"success":true,"data":{"created":[{"id":1,"patientId":1,"source":"mock","status":"pending_review"}],"skipped":[],"remaining":0},"message":"1 draft created (1 mock)"}`
-- Error statuses: `400 VALIDATION_ERROR`, `413 PAYLOAD_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`.
+
+Creates one draft per due, pending patient who has no draft yet, at most `GENERATE_MAX_PER_CALL` per call. Safe to call repeatedly. Nothing is sent.
+
+**Request body (optional)**
+
+| Field | Type | Required | Rules |
+|---|---|---|---|
+| `includeOverdue` | boolean | No | Strict `true`/`false` (not a string). Default `false`. No other fields allowed. |
+
+**Request**
+
+```bash
+curl -s -X POST http://localhost:3000/drafts/generate \
+  -H "Content-Type: application/json" \
+  -d '{"includeOverdue":false}'
+```
+
+**Success: 201 Created** (at least one draft created)
+
+```json
+{
+  "success": true,
+  "data": {
+    "created": [
+      {
+        "id": 1,
+        "patientId": 1,
+        "patientName": "Aarav Sharma",
+        "followUpDate": "2026-11-10",
+        "message": "Hello Aarav, this is a gentle reminder from the clinic about your follow-up visit on 2026-11-10. Please reply to confirm a convenient time or to reschedule. Take care!",
+        "source": "mock",
+        "status": "pending_review",
+        "reviewedAt": null,
+        "createdAt": "2026-11-10 05:31:00"
+      }
+    ],
+    "skipped": [],
+    "remaining": 0
+  },
+  "message": "1 draft created (1 mock)"
+}
+```
+
+**Success: 200 OK** (nothing created). The message is `No patients due` or `All due patients already have drafts`.
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | Body is not an object, `includeOverdue` is not a boolean, or an unknown field is sent |
+| 429 | More than `RATE_LIMIT_GENERATE_MAX` calls per minute |
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "includeOverdue", "issue": "must be a boolean" }
+    ]
+  }
+}
+```
+
+---
 
 #### GET /drafts
-- Query: `status` (optional string: `pending_review`, `approved`, `rejected`, `cancelled`).
-- Curl: `curl -s "http://localhost:3000/drafts?status=pending_review"`
-- Success (`200`): `{"success":true,"data":[{"id":1,"patientName":"Anita Rao","status":"pending_review"}],"count":1,"message":"Drafts retrieved"}`
-- Error statuses: `400 VALIDATION_ERROR`.
 
-#### PATCH /drafts/:id/approve
-- Path: `:id` (integer string, 1-2147483647). Body: optional `message` (string, 100-500 chars with letters).
-- Curl: `curl -s -X PATCH http://localhost:3000/drafts/1/approve -H "Content-Type: application/json" -d '{"message":"Hello Anita, this is a reminder about your follow-up on 2026-11-10. Please reply to let us know if morning works for you. Take care!"}'`
-- Success (`200`): `{"success":true,"data":{"id":1,"status":"approved","reviewedAt":"2026-11-10T04:05:00.000Z"},"message":"Approved, ready to send (simulated). No message was sent."}`
-- Error statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`.
+Lists drafts, with `pending_review` first, then newest first.
 
-#### PATCH /drafts/:id/reject
-- Path: `:id` (integer string, 1-2147483647). Body: ignored.
-- Curl: `curl -s -X PATCH http://localhost:3000/drafts/1/reject`
-- Success (`200`): `{"success":true,"data":{"id":1,"status":"rejected","reviewedAt":"2026-11-10T04:06:00.000Z"},"message":"Draft rejected. No message was sent."}`
-- Error statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`.
+**Query parameters**
+
+| Parameter | Type | Required | Allowed values |
+|---|---|---|---|
+| `status` | string | No | `pending_review`, `approved`, `rejected`, `cancelled` |
+
+**Request**
+
+```bash
+curl -s "http://localhost:3000/drafts?status=pending_review"
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "patientId": 1,
+      "patientName": "Aarav Sharma",
+      "followUpDate": "2026-11-10",
+      "message": "Hello Aarav, this is a gentle reminder from the clinic about your follow-up visit on 2026-11-10. Please reply to confirm a convenient time or to reschedule. Take care!",
+      "source": "mock",
+      "status": "pending_review",
+      "reviewedAt": null,
+      "createdAt": "2026-11-10 05:31:00"
+    }
+  ],
+  "message": "Drafts retrieved",
+  "count": 1
+}
+```
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | Invalid, repeated or unknown query parameter |
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "status", "issue": "must be one of: pending_review, approved, rejected, cancelled" }
+    ]
+  }
+}
+```
+
+---
 
 #### GET /drafts/summary
-- Request: served via `GET /drafts` with status filtering and total count metadata.
-- Curl: `curl -s "http://localhost:3000/drafts?status=approved"`
-- Success (`200`): `{"success":true,"data":[{"id":1,"status":"approved"}],"count":1,"message":"Drafts retrieved"}`
-- Error statuses: `400 VALIDATION_ERROR`.
+
+Returns today's counts plus a short English summary. No query parameters are accepted.
+
+**Request**
+
+```bash
+curl -s http://localhost:3000/drafts/summary
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "date": "2026-11-10",
+    "patients": {
+      "total": 6,
+      "pending": 5,
+      "completed": 1,
+      "dueToday": 2,
+      "overdue": 1
+    },
+    "drafts": {
+      "total": 2,
+      "pendingReview": 2,
+      "approved": 0,
+      "rejected": 0,
+      "cancelled": 0
+    },
+    "summaryText": "Daily status update for 2026-11-10: We have 6 total patients, with 5 pending follow-up and 1 completed. 2 are due today, 1 is overdue, and there are currently 0 total drafts.",
+    "summarySource": "ai",
+    "fallbackReason": null
+  },
+  "message": "Summary retrieved"
+}
+```
+
+**Field reference**
+
+| Field | Meaning |
+|---|---|
+| `date` | Application date in `APP_TIMEZONE` (`YYYY-MM-DD`) |
+| `patients.total` | All patients |
+| `patients.pending` / `completed` | Follow-ups not yet completed / completed |
+| `patients.dueToday` / `overdue` | Pending with follow-up date today / before today |
+| `drafts.total` | Total follow-up message drafts |
+| `drafts.pendingReview` / `approved` / `rejected` | Drafts by review status |
+| `drafts.cancelled` | Drafts cancelled automatically when their patient was completed |
+| `summaryText` | Readable summary of the counts |
+| `summarySource` | `ai` (written by the model) or `mock` (fixed template) |
+| `fallbackReason` | `null` when AI was used; otherwise why the template was used (`mock_mode`, `missing_api_key`, `timeout`, `http status code`, `network_error`, `unusable_output`) |
+
+**Fallback example** (AI unavailable or mock mode, same counts):
+
+```json
+{
+  "success": true,
+  "data": {
+    "date": "2026-11-10",
+    "patients": {
+      "total": 6,
+      "pending": 5,
+      "completed": 1,
+      "dueToday": 2,
+      "overdue": 1
+    },
+    "drafts": {
+      "total": 2,
+      "pendingReview": 2,
+      "approved": 0,
+      "rejected": 0,
+      "cancelled": 0
+    },
+    "summaryText": "Daily Summary (2026-11-10): 6 total patients (5 pending, 1 completed). 2 due today, 1 overdue. Drafts: 2 total (2 pending review, 0 approved, 0 rejected, 0 cancelled).",
+    "summarySource": "mock",
+    "fallbackReason": "mock_mode"
+  },
+  "message": "Summary retrieved"
+}
+```
+
+Counts are always computed by the server. The model only words the summary and never receives names or phone numbers.
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | Any query parameter is sent |
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "query", "issue": "query parameters not allowed" }
+    ]
+  }
+}
+```
+
+---
+
+#### PATCH /drafts/:id/approve
+
+Approves a draft that is pending review, optionally replacing its text. Nothing is sent.
+
+**Path parameters**
+
+| Parameter | Type | Rules |
+|---|---|---|
+| `id` | integer | Positive integer, at most 2147483647 |
+
+**Request body (optional)**
+
+| Field | Type | Required | Rules |
+|---|---|---|---|
+| `message` | string | No | After trimming: 100-500 characters and at least one letter. No other fields allowed. |
+
+**Request**
+
+```bash
+curl -s -X PATCH http://localhost:3000/drafts/1/approve \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Hello Aarav, this is a reminder about your follow-up visit on 2026-11-10. Please reply to let us know if the morning works for you, or if you would like to choose another time. Take care!"}'
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "patientId": 1,
+    "patientName": "Aarav Sharma",
+    "followUpDate": "2026-11-10",
+    "message": "Hello Aarav, this is a reminder about your follow-up visit on 2026-11-10. Please reply to let us know if the morning works for you, or if you would like to choose another time. Take care!",
+    "source": "mock",
+    "status": "approved",
+    "reviewedAt": "2026-11-10T05:40:00.000Z",
+    "createdAt": "2026-11-10 05:31:00"
+  },
+  "message": "Approved, ready to send (simulated). No message was sent."
+}
+```
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | Invalid id, message outside 100-500 characters or without letters, unknown field |
+| 404 | No draft with this id |
+| 409 | Draft is not pending review (already approved, rejected or cancelled) |
+
+400 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "message", "issue": "must be 100-500 characters" }
+    ]
+  }
+}
+```
+
+404 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Draft not found"
+  }
+}
+```
+
+409 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "CONFLICT",
+    "message": "Draft is not pending review"
+  }
+}
+```
+
+---
+
+#### PATCH /drafts/:id/reject
+
+Rejects a draft that is pending review. Does not change the patient's follow-up status. No body is needed.
+
+**Path parameters**
+
+| Parameter | Type | Rules |
+|---|---|---|
+| `id` | integer | Positive integer, at most 2147483647 |
+
+**Request**
+
+```bash
+curl -s -X PATCH http://localhost:3000/drafts/2/reject
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": 2,
+    "patientId": 2,
+    "patientName": "Diya Patel",
+    "followUpDate": "2026-11-10",
+    "message": "Hello Diya, this is a gentle reminder from the clinic about your follow-up visit on 2026-11-10. Please reply to confirm a convenient time or to reschedule. Take care!",
+    "source": "mock",
+    "status": "rejected",
+    "reviewedAt": "2026-11-10T05:41:00.000Z",
+    "createdAt": "2026-11-10 05:31:00"
+  },
+  "message": "Draft rejected. No message was sent."
+}
+```
+
+**Errors**
+
+| Status | When |
+|---|---|
+| 400 | Invalid id |
+| 404 | No draft with this id |
+| 409 | Draft is not pending review |
+
+400 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Validation failed",
+    "details": [
+      { "field": "id", "issue": "must be a positive integer" }
+    ]
+  }
+}
+```
+
+404 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Draft not found"
+  }
+}
+```
+
+409 example:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "CONFLICT",
+    "message": "Draft is not pending review"
+  }
+}
+```
+
+---
+
+### 4.5 System
 
 #### GET /health
-- Request: none.
-- Curl: `curl -s http://localhost:3000/health`
-- Success (`200`): `{"success":true,"data":{"status":"ok"},"message":"Service is healthy"}`
-- Error statuses: `500 INTERNAL_ERROR`.
+
+**Request**
+
+```bash
+curl -s http://localhost:3000/health
+```
+
+**Success: 200 OK**
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "ok"
+  },
+  "message": "Service is healthy"
+}
+```
+
+**Errors:** 500 only if the server fails unexpectedly.
 
 ## 5. AI Follow-Up Workflow
 
@@ -150,7 +852,7 @@ Security: Protected with Helmet headers, no CORS headers, strict rate limits, an
 
 ## 6. How to Test
 
-Run the full automated test suite (covers 127 in-memory unit, integration, validation, security, and AI prompt safety tests):
+Run the full automated test suite (covers in-memory unit, integration, validation, security, and AI prompt safety tests):
 ```bash
 npm test
 ```
@@ -162,7 +864,7 @@ Manual 8-step curl walkthrough:
 4. Approve with edited message: `curl -s -X PATCH http://localhost:3000/drafts/1/approve -H "Content-Type: application/json" -d '{"message":"Hello Aarav, your follow-up is on 2026-11-10. Please reply if morning works for you. Take care and stay healthy!"}'`
 5. Reject another draft: `curl -s -X PATCH http://localhost:3000/drafts/2/reject`
 6. Repeat approve to see 409: `curl -s -X PATCH http://localhost:3000/drafts/1/approve`
-7. View summary of approved drafts: `curl -s "http://localhost:3000/drafts?status=approved"`
+7. View daily summary: `curl -s http://localhost:3000/drafts/summary`
 8. Complete a patient: `curl -s -X PATCH http://localhost:3000/patients/1/complete`
 
 ## 7. Known Limitations

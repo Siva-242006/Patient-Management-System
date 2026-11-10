@@ -13,7 +13,7 @@ import { getDb } from './db.js';
 
 export function createApp(options = {}) {
   // Validate AI_MODE early (fails fast if invalid)
-  validateAiMode(options.aiMode || process.env.AI_MODE || 'ai');
+  validateAiMode(options.aiMode || (options.aiOptions && options.aiOptions.aiMode) || process.env.AI_MODE || 'ai');
 
   const app = express();
 
@@ -43,7 +43,8 @@ export function createApp(options = {}) {
   app.use('/patients', createPatientsRouter({ writeLimiter, db }));
 
   // Drafts routes
-  app.use('/drafts', createDraftsRouter({ generateLimiter, writeLimiter, db, aiOptions: options.aiOptions }));
+  const aiOptions = { ...(options.aiMode ? { aiMode: options.aiMode } : {}), ...(options.aiOptions || {}) };
+  app.use('/drafts', createDraftsRouter({ generateLimiter, writeLimiter, db, aiOptions }));
 
   // 404 handler for unknown routes
   app.use(notFoundHandler);

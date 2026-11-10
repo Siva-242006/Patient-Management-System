@@ -12,6 +12,7 @@ import {
   rejectDraft
 } from '../services/draftService.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+import { getDraftsSummary } from '../services/summaryService.js';
 
 export function createDraftsRouter({ generateLimiter, writeLimiter, db, aiOptions } = {}) {
   const router = Router();
@@ -43,6 +44,22 @@ export function createDraftsRouter({ generateLimiter, writeLimiter, db, aiOption
 
       const drafts = getDrafts({ status: val.status }, db);
       return successResponse(res, 200, drafts, 'Drafts retrieved', { count: drafts.length });
+    } catch (err) {
+      next(err);
+    }
+  });
+
+  // GET /drafts/summary
+  router.get('/summary', async (req, res, next) => {
+    try {
+      if (Object.keys(req.query).length > 0) {
+        return errorResponse(res, 400, 'VALIDATION_ERROR', 'Validation failed', [
+          { field: 'query', issue: 'query parameters not allowed' }
+        ]);
+      }
+
+      const summary = await getDraftsSummary({ db, aiOptions });
+      return successResponse(res, 200, summary, 'Summary retrieved');
     } catch (err) {
       next(err);
     }

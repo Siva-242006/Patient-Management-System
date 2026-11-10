@@ -14,6 +14,8 @@
 - **Documentation:** first drafts of the README and Postman collection.
 
 ## 3. Parts I Personally Designed, Decided and Tested
+- **Behavior I changed or added:** the due-today message changes when `includeOverdue` is used; I added the
+  `GET /drafts/summary` endpoint with a plain-English summary;
 - **Specification and rules:** I wrote the rules given to the agent (stack, response format, safety rules), split the
   work into two phases, and reviewed and approved the agent's plan before each phase was built.
 - **Design decisions:** SQLite for easy setup, hand-written validation instead of a library, no CORS and no
@@ -21,9 +23,6 @@
 - **Validation rules I set or changed:** strict limits for names, phones, dates and ids; phone numbers must be strings;
   approved draft messages must be 100-500 characters (changed from the original 1-1000, with the mock template checked
   to fit the range).
-- **Behavior I changed or added:** the due-today message changes when `includeOverdue` is used; I added the
-  `GET /drafts/summary` endpoint with a plain-English summary;
-  keeping the cancel-on-complete rule.
 - **Testing I did myself:** ran the endpoints manually with Postman, including bad inputs and 409 conflicts, and
   checked that completing a patient cancels their pending drafts.
 - **Debugging and AI setup:** configured the Gemini key and model, and investigated why drafts stayed in mock mode

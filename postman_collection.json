@@ -22,8 +22,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/health",
-              "host": ["{{baseUrl}}"],
-              "path": ["health"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
             }
           }
         },
@@ -43,8 +47,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/patients",
-              "host": ["{{baseUrl}}"],
-              "path": ["patients"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients"
+              ]
             }
           }
         },
@@ -55,8 +63,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/patients?status=pending",
-              "host": ["{{baseUrl}}"],
-              "path": ["patients"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients"
+              ],
               "query": [
                 {
                   "key": "status",
@@ -73,8 +85,13 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/patients/due-today?includeOverdue=true",
-              "host": ["{{baseUrl}}"],
-              "path": ["patients", "due-today"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "due-today"
+              ],
               "query": [
                 {
                   "key": "includeOverdue",
@@ -91,8 +108,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/patients/1/complete",
-              "host": ["{{baseUrl}}"],
-              "path": ["patients", "1", "complete"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients",
+                "1",
+                "complete"
+              ]
             }
           }
         }
@@ -117,8 +140,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/drafts/generate",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "generate"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "generate"
+              ]
             }
           }
         },
@@ -138,8 +166,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/drafts/generate",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "generate"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "generate"
+              ]
             }
           }
         },
@@ -150,8 +183,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/drafts",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts"
+              ]
             }
           }
         },
@@ -162,8 +199,12 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/drafts?status=pending_review",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts"
+              ],
               "query": [
                 {
                   "key": "status",
@@ -180,8 +221,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/drafts/1/approve",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "1", "approve"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "1",
+                "approve"
+              ]
             }
           }
         },
@@ -201,8 +248,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/drafts/1/approve",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "1", "approve"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "1",
+                "approve"
+              ]
             }
           }
         },
@@ -213,8 +266,31 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/drafts/2/reject",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "2", "reject"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "2",
+                "reject"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Drafts Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drafts/summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "summary"
+              ]
             }
           }
         }
@@ -239,8 +315,12 @@
             },
             "url": {
               "raw": "{{baseUrl}}/patients",
-              "host": ["{{baseUrl}}"],
-              "path": ["patients"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "patients"
+              ]
             }
           }
         },
@@ -260,8 +340,13 @@
             },
             "url": {
               "raw": "{{baseUrl}}/drafts/generate",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "generate"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "generate"
+              ]
             }
           }
         },
@@ -281,8 +366,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/drafts/1/approve",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "1", "approve"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "1",
+                "approve"
+              ]
             }
           }
         },
@@ -302,8 +393,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/drafts/1/approve",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "1", "approve"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "1",
+                "approve"
+              ]
             }
           }
         },
@@ -323,8 +420,14 @@
             },
             "url": {
               "raw": "{{baseUrl}}/drafts/1/approve",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "1", "approve"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "1",
+                "approve"
+              ]
             }
           }
         },
@@ -335,8 +438,14 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/drafts/007/approve",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts", "007", "approve"]
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "007",
+                "approve"
+              ]
             }
           }
         },
@@ -347,12 +456,39 @@
             "header": [],
             "url": {
               "raw": "{{baseUrl}}/drafts?status=invalid_status",
-              "host": ["{{baseUrl}}"],
-              "path": ["drafts"],
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts"
+              ],
               "query": [
                 {
                   "key": "status",
                   "value": "invalid_status"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Summary - Query Parameters (400)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drafts/summary?filter=today",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "drafts",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "filter",
+                  "value": "today"
                 }
               ]
             }
