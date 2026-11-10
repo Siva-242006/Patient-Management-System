@@ -2,11 +2,13 @@ import 'dotenv/config';
 import { getToday, addDays } from '../src/utils/dates.js';
 import { validateCreatePatient } from '../src/utils/validate.js';
 import { createPatient, completeFollowUp, clearPatients } from '../src/services/patientService.js';
+import { clearDrafts } from '../src/services/draftService.js';
 import { getDb, closeDb } from '../src/db.js';
 
 export function runSeed(customDb) {
   const db = customDb || getDb();
-  console.log('Clearing existing patients table...');
+  console.log('Clearing existing drafts and patients tables...');
+  clearDrafts(db);
   clearPatients(db);
 
   const today = getToday();

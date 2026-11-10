@@ -1,7 +1,7 @@
 {
   "info": {
-    "name": "Patient Management System - Phase 1 API",
-    "description": "Postman Collection for testing Phase 1 REST API endpoints, validations, and security controls.",
+    "name": "Patient Management System API (Phase 1 & Phase 2)",
+    "description": "Postman Collection for testing Phase 1 REST API and Phase 2 AI follow-up draft workflows.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -13,7 +13,7 @@
   ],
   "item": [
     {
-      "name": "1. Standard Operations (Success)",
+      "name": "1. Standard Operations (Patients)",
       "item": [
         {
           "name": "Health Check",
@@ -99,7 +99,129 @@
       ]
     },
     {
-      "name": "2. Validation & Security Errors (Bad Input)",
+      "name": "2. AI Drafts Workflow (Phase 2)",
+      "item": [
+        {
+          "name": "Generate Drafts (Due Today)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"includeOverdue\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/drafts/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["drafts", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Generate Drafts (Include Overdue)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"includeOverdue\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/drafts/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["drafts", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Get All Drafts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drafts",
+              "host": ["{{baseUrl}}"],
+              "path": ["drafts"]
+            }
+          }
+        },
+        {
+          "name": "Get Pending Review Drafts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drafts?status=pending_review",
+              "host": ["{{baseUrl}}"],
+              "path": ["drafts"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending_review"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Draft",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drafts/1/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["drafts", "1", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Approve Draft (Edited Message)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hello Aarav, this is a reminder about your follow-up visit on 2026-11-10. Please reply to let us know if morning works for you. Take care!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/drafts/1/approve",
+              "host": ["{{baseUrl}}"],
+              "path": ["drafts", "1", "approve"]
+            }
+          }
+        },
+        {
+          "name": "Reject Draft",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/drafts/2/reject",
+              "host": ["{{baseUrl}}"],
+              "path": ["drafts", "2", "reject"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Validation & Security Errors (Bad Input)",
       "item": [
         {
           "name": "Bad Type - Numeric Phone (400)",
@@ -123,7 +245,7 @@
           }
         },
         {
-          "name": "Unknown Field (400)",
+          "name": "Generate - Non-boolean includeOverdue (400)",
           "request": {
             "method": "POST",
             "header": [
@@ -134,19 +256,19 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"+919876543210\",\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\",\n  \"role\": \"admin\"\n}"
+              "raw": "{\n  \"includeOverdue\": \"true\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/patients",
+              "raw": "{{baseUrl}}/drafts/generate",
               "host": ["{{baseUrl}}"],
-              "path": ["patients"]
+              "path": ["drafts", "generate"]
             }
           }
         },
         {
-          "name": "Bad Date - Nonexistent Calendar Date (400)",
+          "name": "Approve - Message Under 100 Chars (400)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               {
                 "key": "Content-Type",
@@ -155,19 +277,19 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"+919876543210\",\n  \"consultationDate\": \"2026-02-31\",\n  \"followUpDate\": \"2026-03-05\"\n}"
+              "raw": "{\n  \"message\": \"Too short\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/patients",
+              "raw": "{{baseUrl}}/drafts/1/approve",
               "host": ["{{baseUrl}}"],
-              "path": ["patients"]
+              "path": ["drafts", "1", "approve"]
             }
           }
         },
         {
-          "name": "Bad Phone - Starts with 5 (400)",
+          "name": "Approve - Message Without Letters (400)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               {
                 "key": "Content-Type",
@@ -176,84 +298,63 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"5876543210\",\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\"\n}"
+              "raw": "{\n  \"message\": \"1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890 1234567890\"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/patients",
+              "raw": "{{baseUrl}}/drafts/1/approve",
               "host": ["{{baseUrl}}"],
-              "path": ["patients"]
+              "path": ["drafts", "1", "approve"]
             }
           }
         },
         {
-          "name": "Wrong Content-Type - text/plain (415)",
+          "name": "Approve - Empty Message (400)",
           "request": {
-            "method": "POST",
+            "method": "PATCH",
             "header": [
               {
                 "key": "Content-Type",
-                "value": "text/plain"
+                "value": "application/json"
               }
             ],
             "body": {
               "mode": "raw",
-              "raw": "name=Anita"
+              "raw": "{\n  \"message\": \"   \"\n}"
             },
             "url": {
-              "raw": "{{baseUrl}}/patients",
+              "raw": "{{baseUrl}}/drafts/1/approve",
               "host": ["{{baseUrl}}"],
-              "path": ["patients"]
+              "path": ["drafts", "1", "approve"]
             }
           }
         },
         {
-          "name": "Bad Path ID - 007 (400)",
+          "name": "Approve - Bad Path ID (400)",
           "request": {
             "method": "PATCH",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/patients/007/complete",
+              "raw": "{{baseUrl}}/drafts/007/approve",
               "host": ["{{baseUrl}}"],
-              "path": ["patients", "007", "complete"]
+              "path": ["drafts", "007", "approve"]
             }
           }
         },
         {
-          "name": "Unknown Query Parameter (400)",
+          "name": "Get Drafts - Unknown Status (400)",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/patients?filter=all",
+              "raw": "{{baseUrl}}/drafts?status=invalid_status",
               "host": ["{{baseUrl}}"],
-              "path": ["patients"],
+              "path": ["drafts"],
               "query": [
                 {
-                  "key": "filter",
-                  "value": "all"
+                  "key": "status",
+                  "value": "invalid_status"
                 }
               ]
-            }
-          }
-        },
-        {
-          "name": "Duplicate Patient Conflict (409)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"Anita Rao\",\n  \"phone\": \"+919876543210\",\n  \"consultationDate\": \"2026-11-01\",\n  \"followUpDate\": \"2026-11-15\"\n}"
-            },
-            "url": {
-              "raw": "{{baseUrl}}/patients",
-              "host": ["{{baseUrl}}"],
-              "path": ["patients"]
             }
           }
         }

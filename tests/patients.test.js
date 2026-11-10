@@ -676,6 +676,28 @@ describe('Patients API Endpoints & Validation', () => {
       assert.equal(second.body.error.message, 'Follow-up already completed');
     });
 
+    it('cancels pending drafts in the same transaction upon completion', async () => {
+      const created = await request(app).post('/patients').send({
+        name: 'Anita Rao',
+        phone: '+919876543210',
+        consultationDate: '2026-11-01',
+        followUpDate: '2026-11-09'
+      });
+      const patientId = created.body.data.id;
+
+      // Insert a pending draft directly
+      db.prepare(`
+        INSERT INTO drafts (patient_id, follow_up_date, message, source, status)
+        VALUES (?, '2026-11-09', ?, 'mock', 'pending_review')
+      `).run(patientId, 'A'.repeat(100));
+
+      const res = await request(app).patch(`/patients/${patientId}/complete`);
+      assert.equal(res.status, 200);
+
+      const draft = db.prepare('SELECT status FROM drafts WHERE patient_id = ?').get(patientId);
+      assert.equal(draft.status, 'cancelled');
+    });
+
     it('returns 400 for invalid ids: "abc", "0", "-1", "1.5", "1e3", "007", "99999999999"', async () => {
       const invalidIds = ['abc', '0', '-1', '1.5', '1e3', '007', '99999999999'];
       for (const id of invalidIds) {

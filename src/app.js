@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import helmet from 'helmet';
 import { createRateLimiters } from './middleware/rateLimiter.js';
@@ -5,10 +6,15 @@ import { requestLogger } from './middleware/logger.js';
 import { notFoundHandler } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { createPatientsRouter } from './routes/patients.js';
+import { createDraftsRouter } from './routes/drafts.js';
+import { validateAiMode } from './services/aiService.js';
 import { successResponse } from './utils/response.js';
 import { getDb } from './db.js';
 
 export function createApp(options = {}) {
+  // Validate AI_MODE early (fails fast if invalid)
+  validateAiMode(options.aiMode || process.env.AI_MODE || 'ai');
+
   const app = express();
 
   // Security: disable x-powered-by & use helmet defaults
@@ -22,7 +28,7 @@ export function createApp(options = {}) {
   app.use(requestLogger);
 
   // Rate limiting (configurable via options)
-  const { generalLimiter, writeLimiter } = createRateLimiters(options.rateLimit || {});
+  const { generalLimiter, writeLimiter, generateLimiter } = createRateLimiters(options.rateLimit || {});
   app.use(generalLimiter);
 
   // Database initialization
@@ -35,6 +41,9 @@ export function createApp(options = {}) {
 
   // Patients routes
   app.use('/patients', createPatientsRouter({ writeLimiter, db }));
+
+  // Drafts routes
+  app.use('/drafts', createDraftsRouter({ generateLimiter, writeLimiter, db, aiOptions: options.aiOptions }));
 
   // 404 handler for unknown routes
   app.use(notFoundHandler);

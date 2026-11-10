@@ -1,4 +1,5 @@
 import { getToday, isValidCalendarDate, addDays } from './dates.js';
+import { MESSAGE_MIN, MESSAGE_MAX } from './constants.js';
 
 export function validateCreatePatient(body) {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
@@ -172,18 +173,166 @@ export function validateId(id) {
   if (typeof id !== 'string' || !/^[1-9][0-9]{0,9}$/.test(id)) {
     return {
       valid: false,
-      errors: [{ field: 'id', issue: 'must be a positive integer up to 2147483647' }]
+      errors: [{ field: 'id', issue: 'must be a positive integer' }]
     };
   }
   const num = Number(id);
   if (num > 2147483647) {
     return {
       valid: false,
-      errors: [{ field: 'id', issue: 'must be a positive integer up to 2147483647' }]
+      errors: [{ field: 'id', issue: 'must be a positive integer' }]
     };
   }
   return {
     valid: true,
     id: num
+  };
+}
+
+export function validateGenerateDraftsBody(body) {
+  if (
+    body === undefined ||
+    body === null ||
+    (typeof body === 'object' && Object.keys(body).length === 0 && !Array.isArray(body))
+  ) {
+    return {
+      valid: true,
+      errors: [],
+      data: { includeOverdue: false }
+    };
+  }
+
+  if (typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      valid: false,
+      errors: [{ field: 'body', issue: 'must be a JSON object' }]
+    };
+  }
+
+  const errors = [];
+  const allowed = new Set(['includeOverdue']);
+
+  for (const key of Object.keys(body)) {
+    if (!allowed.has(key)) {
+      errors.push({ field: key, issue: 'unknown field' });
+    }
+  }
+
+  let includeOverdue = false;
+  if ('includeOverdue' in body) {
+    if (typeof body.includeOverdue !== 'boolean') {
+      errors.push({ field: 'includeOverdue', issue: 'must be a boolean' });
+    } else {
+      includeOverdue = body.includeOverdue;
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: errors.length === 0 ? { includeOverdue } : null
+  };
+}
+
+export function validateApproveDraftBody(body) {
+  if (
+    body === undefined ||
+    body === null ||
+    (typeof body === 'object' && Object.keys(body).length === 0 && !Array.isArray(body))
+  ) {
+    return {
+      valid: true,
+      errors: [],
+      data: { message: null }
+    };
+  }
+
+  if (typeof body !== 'object' || Array.isArray(body)) {
+    return {
+      valid: false,
+      errors: [{ field: 'body', issue: 'must be a JSON object' }]
+    };
+  }
+
+  const errors = [];
+  const allowed = new Set(['message']);
+
+  for (const key of Object.keys(body)) {
+    if (!allowed.has(key)) {
+      errors.push({ field: key, issue: 'unknown field' });
+    }
+  }
+
+  let normalizedMessage = null;
+  if ('message' in body) {
+    if (typeof body.message !== 'string') {
+      errors.push({ field: 'message', issue: 'must be a string' });
+    } else {
+      const trimmed = body.message.trim();
+      let hasError = false;
+
+      if (trimmed.length < MESSAGE_MIN || trimmed.length > MESSAGE_MAX) {
+        errors.push({
+          field: 'message',
+          issue: `must be ${MESSAGE_MIN}-${MESSAGE_MAX} characters`
+        });
+        hasError = true;
+      }
+
+      if (!/\p{L}/u.test(trimmed)) {
+        errors.push({
+          field: 'message',
+          issue: 'must contain letters'
+        });
+        hasError = true;
+      }
+
+      if (/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/.test(trimmed)) {
+        errors.push({
+          field: 'message',
+          issue: 'must not contain control characters'
+        });
+        hasError = true;
+      }
+
+      if (!hasError) {
+        normalizedMessage = trimmed;
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    data: errors.length === 0 ? { message: normalizedMessage } : null
+  };
+}
+
+export function validateGetDraftsQuery(query) {
+  const errors = [];
+  const allowed = new Set(['status']);
+  const allowedStatuses = new Set(['pending_review', 'approved', 'rejected', 'cancelled']);
+
+  for (const key of Object.keys(query)) {
+    if (!allowed.has(key)) {
+      errors.push({ field: key, issue: 'unknown query parameter' });
+    }
+  }
+
+  if (Array.isArray(query.status)) {
+    errors.push({ field: 'status', issue: 'duplicate query parameter not allowed' });
+  } else if (query.status !== undefined) {
+    if (!query.status || !allowedStatuses.has(query.status)) {
+      errors.push({
+        field: 'status',
+        issue: 'must be pending_review, approved, rejected, or cancelled'
+      });
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    status: query.status
   };
 }

@@ -1,250 +1,174 @@
-# Patient Follow-Up System — Backend REST API
+# Patient Follow-Up System
 
-A lightweight REST API built with Node.js, Express, and SQLite (`better-sqlite3`) for managing patient follow-up schedules.
+A backend REST API for managing clinic follow-up appointments and an AI draft workflow for staff review. All patient data is strictly fictional for assessment purposes. No message is ever sent automatically, and no WhatsApp, SMS, or email code exists in the codebase.
 
----
+## 1. How to Run
 
-## 1. Dependencies
+Prerequisites: Node.js 20+
 
-- **Runtime**: Node.js `v20.0.0` or higher (ES Modules)
-- **Production Dependencies**:
-  - `express`: Fast, minimalist web framework
-  - `better-sqlite3`: Fast, synchronous SQLite3 driver
-  - `dotenv`: Environment configuration loader
-  - `helmet`: Security HTTP headers
-  - `express-rate-limit`: Basic rate limiting middleware
-- **Development & Testing**:
-  - `supertest`: HTTP assertions for integration testing
-  - `node:test`: Built-in Node.js test runner
-
----
-
-## 2. Setup & How to Run
-
-### Installation
 ```bash
-# 1. Install dependencies
 npm install
-
-# 2. Configure environment
 cp .env.example .env
-```
-
-### Environment Variables (`.env`)
-```env
-PORT=3000
-DB_PATH=./data/app.db
-APP_TIMEZONE=Asia/Kolkata
-RATE_LIMIT_MAX=100
-RATE_LIMIT_WRITE_MAX=30
-```
-
-### Running the Application
-```bash
-# Start in development mode (with auto-reload)
-npm run dev
-
-# Start in production mode
-npm start
-
-# Seed the database with 6 fictional patients
 npm run seed
+npm start
 ```
+Server runs at `http://localhost:3000`. Use `npm run dev` for auto-reload.
 
----
+## 2. Dependencies
 
-## 3. API Endpoints
+Runtime:
+- `express`: Minimalist HTTP web framework.
+- `better-sqlite3`: Synchronous SQLite database driver.
+- `dotenv`: Loads configuration from `.env`.
+- `helmet`: Sets secure HTTP headers.
+- `express-rate-limit`: Basic IP-based request rate limiting.
 
-All responses use a consistent JSON envelope format.
+Development:
+- `supertest`: HTTP assertions for integration testing.
+- `node:test`: Built-in Node.js test runner.
 
-| Method | Endpoint | Query Parameters | Description |
-|---|---|---|---|
-| `GET` | `/health` | None | Service health check |
-| `GET` | `/patients` | `status` (`pending` \| `completed`) | List patients (ordered by follow-up date, then ID) |
-| `GET` | `/patients/due-today` | `includeOverdue` (`true` \| `false`) | List pending patients due today (or overdue) |
-| `POST` | `/patients` | None | Create a new patient follow-up record |
-| `PATCH` | `/patients/:id/complete` | None | Atomically mark a follow-up as completed |
+## 3. Environment Variables
 
----
+| Name | Default | Purpose |
+|---|---|---|
+| `PORT` | `3000` | HTTP server port |
+| `DB_PATH` | `./data/app.db` | SQLite database file location |
+| `APP_TIMEZONE` | `Asia/Kolkata` | Application timezone for date calculations |
+| `RATE_LIMIT_MAX` | `100` | Global requests per minute limit |
+| `RATE_LIMIT_WRITE_MAX` | `30` | Write requests per minute limit |
+| `RATE_LIMIT_GENERATE_MAX` | `5` | Draft generation requests per minute limit |
+| `GENERATE_MAX_PER_CALL` | `20` | Maximum patients processed per generate call |
+| `AI_MODE` | `ai` | Generation mode: `ai` or `mock` |
+| `GEMINI_MODEL` | `gemini-3.5-flash` | Gemini model name |
+| `GEMINI_API_KEY` | *(empty)* | Optional Gemini API key; stays in `.env` only and is never logged |
 
-### Endpoint Details & Examples
+## 4. API Endpoints
 
-#### 1. `GET /health`
-- **Response (`200 OK`)**:
-```json
-{
-  "success": true,
-  "data": { "status": "ok" },
-  "message": "Service is healthy"
-}
-```
+Common response envelopes:
+- Success: `{"success": true, "data": <payload>, "message": "<info>"}`
+- Error: `{"success": false, "error": {"code": "<CODE>", "message": "<info>", "details": [...]}}`
+- Error codes and HTTP statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`, `413 PAYLOAD_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`, `429 RATE_LIMITED`, `500 INTERNAL_ERROR`.
 
-#### 2. `GET /patients`
-- **Optional Query**: `?status=pending` or `?status=completed`
-- **Response (`200 OK`)**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Aarav Sharma",
-      "phone": "+919000000001",
-      "consultationDate": "2026-11-04",
-      "followUpDate": "2026-11-09",
-      "followUpStatus": "pending",
-      "completedAt": null,
-      "createdAt": "2026-11-09 13:43:21"
-    }
-  ],
-  "message": "Patients retrieved",
-  "count": 1
-}
-```
+Key validation rules:
+- Required body fields cannot be omitted or null.
+- Phone must be a 10-digit Indian number starting 6-9, stored as `+91XXXXXXXXXX`.
+- Dates must be real calendar dates in `YYYY-MM-DD` format.
+- `followUpDate` must be on or after `consultationDate` and within 365 days.
+- Draft approve `message` must be 100-500 characters and contain letters.
 
-#### 3. `GET /patients/due-today`
-- **Optional Query**: `?includeOverdue=true` (defaults to `false`)
-- **Response (`200 OK`)**:
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": 1,
-      "name": "Aarav Sharma",
-      "phone": "+919000000001",
-      "consultationDate": "2026-11-04",
-      "followUpDate": "2026-11-09",
-      "followUpStatus": "pending",
-      "completedAt": null,
-      "createdAt": "2026-11-09 13:43:21"
-    }
-  ],
-  "message": "Due today patients retrieved",
-  "count": 1,
-  "date": "2026-11-09"
-}
-```
+Security: Protected with Helmet headers, no CORS headers, strict rate limits, and zero logging of patient identifiers.
 
-#### 4. `POST /patients`
-- **Headers**: `Content-Type: application/json`
-- **Body**:
-```json
-{
-  "name": "Anita Rao",
-  "phone": "98765 43210",
-  "consultationDate": "2026-11-01",
-  "followUpDate": "2026-11-15"
-}
-```
-- **Response (`201 Created`)**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": 7,
-    "name": "Anita Rao",
-    "phone": "+919876543210",
-    "consultationDate": "2026-11-01",
-    "followUpDate": "2026-11-15",
-    "followUpStatus": "pending",
-    "completedAt": null,
-    "createdAt": "2026-11-09 14:00:00"
-  },
-  "message": "Patient added"
-}
-```
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/patients` | Create patient follow-up record |
+| `GET` | `/patients` | List patients (`?status=pending\|completed`) |
+| `GET` | `/patients/due-today` | List patients due today (`?includeOverdue=true`) |
+| `PATCH` | `/patients/:id/complete` | Complete follow-up and cancel pending drafts |
+| `POST` | `/drafts/generate` | Generate drafts for due patients |
+| `GET` | `/drafts` | List drafts (`?status=pending_review\|approved\|rejected\|cancelled`) |
+| `PATCH` | `/drafts/:id/approve` | Approve draft (optional edited message) |
+| `PATCH` | `/drafts/:id/reject` | Reject draft |
+| `GET` | `/drafts/summary` | Summary review list (`GET /drafts` with count and filters) |
+| `GET` | `/health` | Service health check |
 
-#### 5. `PATCH /patients/:id/complete`
-- **URL Parameter**: `:id` (positive integer)
-- **Response (`200 OK`)**:
-```json
-{
-  "success": true,
-  "data": {
-    "id": 1,
-    "name": "Aarav Sharma",
-    "phone": "+919000000001",
-    "consultationDate": "2026-11-04",
-    "followUpDate": "2026-11-09",
-    "followUpStatus": "completed",
-    "completedAt": "2026-11-09T14:05:00.000Z",
-    "createdAt": "2026-11-09 13:43:21"
-  },
-  "message": "Follow-up marked as completed"
-}
-```
+### Endpoint Details
 
----
+#### POST /patients
+- Body: `name` (string, 2-100 chars), `phone` (string, 10-digit Indian), `consultationDate` (`YYYY-MM-DD`), `followUpDate` (`YYYY-MM-DD`).
+- Curl: `curl -s -X POST http://localhost:3000/patients -H "Content-Type: application/json" -d '{"name":"Anita Rao","phone":"9876543210","consultationDate":"2026-11-01","followUpDate":"2026-11-10"}'`
+- Success (`201`): `{"success":true,"data":{"id":1,"name":"Anita Rao","phone":"+919876543210","followUpStatus":"pending"},"message":"Patient follow-up created"}`
+- Error statuses: `400 VALIDATION_ERROR`, `409 CONFLICT`, `413 PAYLOAD_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`.
 
-## 4. Validation Rules & Error Handling
+#### GET /patients
+- Query: `status` (optional string, `pending` or `completed`).
+- Curl: `curl -s "http://localhost:3000/patients?status=pending"`
+- Success (`200`): `{"success":true,"data":[{"id":1,"name":"Anita Rao","followUpStatus":"pending"}],"count":1,"message":"Patients retrieved"}`
+- Error statuses: `400 VALIDATION_ERROR`.
 
-### Standard Error Envelope
-All error responses return a standardized format:
-```json
-{
-  "success": false,
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Validation failed",
-    "details": [
-      { "field": "phone", "issue": "must be a valid 10-digit Indian mobile number" }
-    ]
-  }
-}
-```
+#### GET /patients/due-today
+- Query: `includeOverdue` (optional boolean string, `true` or `false`, default `false`).
+- Curl: `curl -s "http://localhost:3000/patients/due-today?includeOverdue=true"`
+- Success (`200`): `{"success":true,"data":[{"id":1,"name":"Anita Rao","followUpDate":"2026-11-10"}],"count":1,"message":"Patients retrieved","date":"2026-11-10"}`
+- Error statuses: `400 VALIDATION_ERROR`.
 
-### Input Validation
-- **`name`**: String, 2–100 characters. Letters, accents, spaces, hyphens, and apostrophes only. Whitespace is automatically trimmed and internal runs collapsed.
-- **`phone`**: String, max 20 chars raw. Accepts 10 digits starting with 6–9 (optional `+91` or `91` prefix, spaces/hyphens permitted). Normalized and stored as `+91XXXXXXXXXX`.
-- **`consultationDate`**: Real calendar date (`YYYY-MM-DD`). Must be on or before today, within the last 365 days.
-- **`followUpDate`**: Real calendar date (`YYYY-MM-DD`). Must be on or after `consultationDate` and within 365 days of consultation.
-- **Query Parameters**: Strict allowlist (`status` for `/patients`, `includeOverdue` for `/patients/due-today`). Unknown parameters return `400 VALIDATION_ERROR`.
-- **Duplicate Prevention**: Re-adding the same patient name, phone, and follow-up date returns `409 CONFLICT`.
+#### PATCH /patients/:id/complete
+- Path: `:id` (integer string, 1-2147483647). Body: ignored.
+- Curl: `curl -s -X PATCH http://localhost:3000/patients/1/complete`
+- Success (`200`): `{"success":true,"data":{"id":1,"followUpStatus":"completed","completedAt":"2026-11-10T04:00:00.000Z"},"message":"Follow-up marked as completed"}`
+- Error statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`.
 
-### HTTP Status Codes
-- `200 OK`: Successful read or update.
-- `201 Created`: Successful creation.
-- `400 Bad Request` (`VALIDATION_ERROR`): Missing fields, invalid format, or malformed JSON.
-- `404 Not Found` (`NOT_FOUND`): Nonexistent patient ID or unknown route.
-- `409 Conflict` (`CONFLICT`): Duplicate follow-up or double-completion of a patient.
-- `413 Payload Too Large` (`PAYLOAD_TOO_LARGE`): Request body exceeds 10kb limit.
-- `415 Unsupported Media Type` (`UNSUPPORTED_MEDIA_TYPE`): Missing `Content-Type: application/json`.
-- `429 Rate Limited` (`RATE_LIMITED`): Exceeded request limit (100 req/min general, 30 req/min writes).
-- `500 Internal Error` (`INTERNAL_ERROR`): Server error (stack traces and internal details suppressed).
+#### POST /drafts/generate
+- Body: optional JSON object with only `includeOverdue` (strict boolean, default `false`).
+- Curl: `curl -s -X POST http://localhost:3000/drafts/generate -H "Content-Type: application/json" -d '{"includeOverdue":false}'`
+- Success (`201` or `200`): `{"success":true,"data":{"created":[{"id":1,"patientId":1,"source":"mock","status":"pending_review"}],"skipped":[],"remaining":0},"message":"1 draft created (1 mock)"}`
+- Error statuses: `400 VALIDATION_ERROR`, `413 PAYLOAD_TOO_LARGE`, `415 UNSUPPORTED_MEDIA_TYPE`.
 
----
+#### GET /drafts
+- Query: `status` (optional string: `pending_review`, `approved`, `rejected`, `cancelled`).
+- Curl: `curl -s "http://localhost:3000/drafts?status=pending_review"`
+- Success (`200`): `{"success":true,"data":[{"id":1,"patientName":"Anita Rao","status":"pending_review"}],"count":1,"message":"Drafts retrieved"}`
+- Error statuses: `400 VALIDATION_ERROR`.
 
-## 5. How to Test
+#### PATCH /drafts/:id/approve
+- Path: `:id` (integer string, 1-2147483647). Body: optional `message` (string, 100-500 chars with letters).
+- Curl: `curl -s -X PATCH http://localhost:3000/drafts/1/approve -H "Content-Type: application/json" -d '{"message":"Hello Anita, this is a reminder about your follow-up on 2026-11-10. Please reply to let us know if morning works for you. Take care!"}'`
+- Success (`200`): `{"success":true,"data":{"id":1,"status":"approved","reviewedAt":"2026-11-10T04:05:00.000Z"},"message":"Approved, ready to send (simulated). No message was sent."}`
+- Error statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`.
 
-### Automated Test Suite
-Run the 70 automated integration and security tests (runs against an isolated in-memory SQLite database):
+#### PATCH /drafts/:id/reject
+- Path: `:id` (integer string, 1-2147483647). Body: ignored.
+- Curl: `curl -s -X PATCH http://localhost:3000/drafts/1/reject`
+- Success (`200`): `{"success":true,"data":{"id":1,"status":"rejected","reviewedAt":"2026-11-10T04:06:00.000Z"},"message":"Draft rejected. No message was sent."}`
+- Error statuses: `400 VALIDATION_ERROR`, `404 NOT_FOUND`, `409 CONFLICT`.
+
+#### GET /drafts/summary
+- Request: served via `GET /drafts` with status filtering and total count metadata.
+- Curl: `curl -s "http://localhost:3000/drafts?status=approved"`
+- Success (`200`): `{"success":true,"data":[{"id":1,"status":"approved"}],"count":1,"message":"Drafts retrieved"}`
+- Error statuses: `400 VALIDATION_ERROR`.
+
+#### GET /health
+- Request: none.
+- Curl: `curl -s http://localhost:3000/health`
+- Success (`200`): `{"success":true,"data":{"status":"ok"},"message":"Service is healthy"}`
+- Error statuses: `500 INTERNAL_ERROR`.
+
+## 5. AI Follow-Up Workflow
+
+1. Identify due pending patients.
+2. Generate personalized WhatsApp drafts sequentially via Gemini (or mock fallback).
+3. Staff reviews pending drafts through the API.
+4. Staff approves (optionally with edited text) or rejects each draft.
+5. Nothing is ever sent; approved drafts are marked simulated send-ready only.
+
+- Real AI mode: Set `AI_MODE=ai`, specify `GEMINI_MODEL=gemini-3.5-flash`, and provide `GEMINI_API_KEY` in `.env`. Only the patient first name and follow-up date are sent to the model (phone numbers and patient IDs are never forwarded).
+- Mock mode: Triggered when `AI_MODE=mock`, `GEMINI_API_KEY` is missing, or the Gemini API call fails, times out, or returns unusable text. Exact mock text for patient Anita Rao: `"Hello Anita, this is a gentle reminder from the clinic about your follow-up visit on 2026-11-10. Please reply to confirm a convenient time or to reschedule. Take care!"`. Resulting draft object:
+  ```json
+  {"id":1,"patientId":1,"patientName":"Anita Rao","followUpDate":"2026-11-10","message":"Hello Anita, this is a gentle reminder from the clinic about your follow-up visit on 2026-11-10. Please reply to confirm a convenient time or to reschedule. Take care!","source":"mock","status":"pending_review"}
+  ```
+- Limitation: The mock is a fixed template with only first name and date filled in, so every message reads the same and is not personalized by a model. Drafts are labeled `source: "ai"` or `source: "mock"` so staff always know which they are reviewing.
+
+## 6. How to Test
+
+Run the full automated test suite (covers 127 in-memory unit, integration, validation, security, and AI prompt safety tests):
 ```bash
 npm test
 ```
 
-### Manual Testing with Postman
-Import the included collection [`postman_collection.json`](./postman_collection.json) into Postman to run pre-configured requests for all endpoints, including valid operations and bad-input test cases.
+Manual 8-step curl walkthrough:
+1. Seed database: `npm run seed`
+2. Generate drafts: `curl -s -X POST http://localhost:3000/drafts/generate -H "Content-Type: application/json" -d "{}"`
+3. List drafts: `curl -s "http://localhost:3000/drafts?status=pending_review"`
+4. Approve with edited message: `curl -s -X PATCH http://localhost:3000/drafts/1/approve -H "Content-Type: application/json" -d '{"message":"Hello Aarav, your follow-up is on 2026-11-10. Please reply if morning works for you. Take care and stay healthy!"}'`
+5. Reject another draft: `curl -s -X PATCH http://localhost:3000/drafts/2/reject`
+6. Repeat approve to see 409: `curl -s -X PATCH http://localhost:3000/drafts/1/approve`
+7. View summary of approved drafts: `curl -s "http://localhost:3000/drafts?status=approved"`
+8. Complete a patient: `curl -s -X PATCH http://localhost:3000/patients/1/complete`
 
-### Manual Testing with PowerShell (`curl.exe`)
-Make sure the server is running (`npm run dev`), then execute:
+## 7. Known Limitations
 
-```powershell
-# 1. Health check
-curl.exe -i http://localhost:3000/health
-
-# 2. Create patient
-curl.exe -i -X POST http://localhost:3000/patients -H "Content-Type: application/json" -d "{\`"name\`":\`"Anita Rao\`",\`"phone\`":\`"98765 43210\`",\`"consultationDate\`":\`"2026-11-01\`",\`"followUpDate\`":\`"2026-11-15\`"}"
-
-# 3. List patients
-curl.exe -i "http://localhost:3000/patients?status=pending"
-
-# 4. Due today
-curl.exe -i "http://localhost:3000/patients/due-today?includeOverdue=true"
-
-# 5. Complete follow-up
-curl.exe -i -X PATCH http://localhost:3000/patients/1/complete
-
-# 6. Test bad input (invalid phone -> 400)
-curl.exe -i -X POST http://localhost:3000/patients -H "Content-Type: application/json" -d "{\`"name\`":\`"Anita Rao\`",\`"phone\`":\`"5876543210\`",\`"consultationDate\`":\`"2026-11-01\`",\`"followUpDate\`":\`"2026-11-15\`"}"
-```
+- No user authentication or role-based access control, so not intended for real patient data.
+- Mock mode uses fixed template interpolation rather than generative personalization.
+- No real WhatsApp or messaging provider integration; approval is simulated only.
+- SQLite is local and single-node (not distributed).
+- A rejected draft blocks regenerating another draft for that patient and date due to the unique constraint.

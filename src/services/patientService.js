@@ -73,28 +73,40 @@ export function getDueTodayPatients({ includeOverdue = false } = {}, db = getDb(
 
 export function completeFollowUp(id, db = getDb()) {
   const completedAt = new Date().toISOString();
-  const stmt = db.prepare(`
-    UPDATE patients
-    SET follow_up_status = 'completed', completed_at = ?
-    WHERE id = ? AND follow_up_status = 'pending'
-  `);
-  const info = stmt.run(completedAt, id);
 
-  if (info.changes === 0) {
-    const existing = db.prepare('SELECT id, follow_up_status FROM patients WHERE id = ?').get(id);
-    if (!existing) {
-      const err = new Error('Patient not found');
-      err.code = 'NOT_FOUND';
-      throw err;
-    }
-    if (existing.follow_up_status === 'completed') {
-      const err = new Error('Follow-up already completed');
-      err.code = 'CONFLICT';
-      throw err;
-    }
-  }
+  const completeTx = db.transaction(() => {
+    const stmt = db.prepare(`
+      UPDATE patients
+      SET follow_up_status = 'completed', completed_at = ?
+      WHERE id = ? AND follow_up_status = 'pending'
+    `);
+    const info = stmt.run(completedAt, id);
 
-  const updated = db.prepare('SELECT * FROM patients WHERE id = ?').get(id);
+    if (info.changes === 0) {
+      const existing = db.prepare('SELECT id, follow_up_status FROM patients WHERE id = ?').get(id);
+      if (!existing) {
+        const err = new Error('Patient not found');
+        err.code = 'NOT_FOUND';
+        throw err;
+      }
+      if (existing.follow_up_status === 'completed') {
+        const err = new Error('Follow-up already completed');
+        err.code = 'CONFLICT';
+        throw err;
+      }
+    }
+
+    // Cancel any pending_review drafts for this patient in the same transaction
+    db.prepare(`
+      UPDATE drafts
+      SET status = 'cancelled'
+      WHERE patient_id = ? AND status = 'pending_review'
+    `).run(id);
+
+    return db.prepare('SELECT * FROM patients WHERE id = ?').get(id);
+  });
+
+  const updated = completeTx();
   return formatPatient(updated);
 }
 

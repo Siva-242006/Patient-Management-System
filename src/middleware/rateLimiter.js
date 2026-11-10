@@ -4,11 +4,12 @@ import { errorResponse } from '../utils/response.js';
 export function createRateLimiters(options = {}) {
   const generalMax = options.generalMax ?? parseInt(process.env.RATE_LIMIT_MAX || '100', 10);
   const writeMax = options.writeMax ?? parseInt(process.env.RATE_LIMIT_WRITE_MAX || '30', 10);
+  const generateMax = options.generateMax ?? parseInt(process.env.RATE_LIMIT_GENERATE_MAX || '5', 10);
   const enabled = options.enabled !== false;
 
   if (!enabled) {
     const noop = (req, res, next) => next();
-    return { generalLimiter: noop, writeLimiter: noop };
+    return { generalLimiter: noop, writeLimiter: noop, generateLimiter: noop };
   }
 
   const handler = (req, res) => {
@@ -31,5 +32,13 @@ export function createRateLimiters(options = {}) {
     handler
   });
 
-  return { generalLimiter, writeLimiter };
+  const generateLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: generateMax,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    handler
+  });
+
+  return { generalLimiter, writeLimiter, generateLimiter };
 }

@@ -130,4 +130,70 @@ describe('Security & Infrastructure Tests', () => {
     assert.equal(res2.status, 429);
     assert.equal(res2.body.error.code, 'RATE_LIMITED');
   });
+
+  it('enforces generate rate limit returning 429 RATE_LIMITED on POST /drafts/generate', async () => {
+    const limitedApp = createApp({
+      db,
+      rateLimit: { generalMax: 10, writeMax: 10, generateMax: 1, enabled: true },
+      aiMode: 'mock'
+    });
+
+    // Generate 1: OK
+    const res1 = await request(limitedApp).post('/drafts/generate').send({});
+    assert.equal(res1.status, 200);
+
+    // Generate 2: Exceeded generate limit (1)
+    const res2 = await request(limitedApp).post('/drafts/generate').send({});
+    assert.equal(res2.status, 429);
+    assert.equal(res2.body.success, false);
+    assert.equal(res2.body.error.code, 'RATE_LIMITED');
+    assert.equal(res2.body.error.message, 'Too many requests, please try again later');
+  });
+
+  it('safety scanner verifies src/ contains no message-sending code or unauthorized HTTP calls', async () => {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+
+    const prohibitedKeywords = [
+      'twilio',
+      'whatsapp-web',
+      'nodemailer',
+      'sendMessage',
+      'api.whatsapp.com',
+      'wa.me'
+    ];
+
+    function scanDir(dir) {
+      const files = fs.readdirSync(dir);
+      for (const file of files) {
+        const fullPath = path.join(dir, file);
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          scanDir(fullPath);
+        } else if (file.endsWith('.js')) {
+          const content = fs.readFileSync(fullPath, 'utf8');
+
+          // Check prohibited sending keywords
+          for (const keyword of prohibitedKeywords) {
+            const regex = new RegExp(`\\b${keyword}\\b`, 'i');
+            assert.equal(
+              regex.test(content),
+              false,
+              `Found prohibited sending keyword "${keyword}" in file ${fullPath}`
+            );
+          }
+
+          // Check for unauthorized outbound HTTP calls outside aiService.js
+          if (!fullPath.endsWith('aiService.js')) {
+            assert.equal(content.includes('fetch('), false, `Unauthorized fetch() call found in ${fullPath}`);
+            assert.equal(content.includes('http.request('), false, `Unauthorized http.request found in ${fullPath}`);
+            assert.equal(content.includes('https.request('), false, `Unauthorized https.request found in ${fullPath}`);
+            assert.equal(content.includes('axios'), false, `Unauthorized axios found in ${fullPath}`);
+          }
+        }
+      }
+    }
+
+    scanDir(path.resolve('src'));
+  });
 });
